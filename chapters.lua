@@ -425,12 +425,12 @@ local function write_chapters(...)
     end
 
     -- and the name
-    local name = mp.get_property("filename/no-ext")
+    local name = mp.get_property("filename")
     if options.hash and options.global_chapters then
         name = hash()
         if name == nil then
             msg.warn("hash function failed, fallback to filename")
-            name = mp.get_property("filename/no-ext")
+            name = mp.get_property("filename")
         end
     end
 
@@ -464,7 +464,7 @@ end
 -- 3. path based version of the chapters file in the global directory
 local function load_chapters()
     local path = mp.get_property("path")
-    local expected_chapters_file = utils.join_path(utils.split_path(path), mp.get_property("filename/no-ext") .. ".ffmetadata")
+    local expected_chapters_file = utils.join_path(utils.split_path(path), mp.get_property("filename") .. ".ffmetadata")
 
     msg.debug("looking for:", expected_chapters_file)
 
@@ -489,10 +489,10 @@ local function load_chapters()
             expected_chapters_file = utils.join_path(options.chapters_dir, hashed_path .. ".ffmetadata")
         else
             msg.debug("hash function failed, fallback to path")
-            expected_chapters_file = utils.join_path(options.chapters_dir, mp.get_property("filename/no-ext") .. ".ffmetadata")
+            expected_chapters_file = utils.join_path(options.chapters_dir, mp.get_property("filename") .. ".ffmetadata")
         end
     else
-        expected_chapters_file = utils.join_path(options.chapters_dir, mp.get_property("filename/no-ext") .. ".ffmetadata")
+        expected_chapters_file = utils.join_path(options.chapters_dir, mp.get_property("filename") .. ".ffmetadata")
     end
 
     msg.debug("looking for:", expected_chapters_file)
