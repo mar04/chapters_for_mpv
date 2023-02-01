@@ -310,6 +310,11 @@ local function hash()
 
     msg.debug("hashing:", path)
 
+    local cmd = {
+        name = 'subprocess',
+        capture_stdout = true,
+        playback_only = false,
+    }
     local args = nil
 
     if detect_os() == "unix" then
@@ -319,19 +324,16 @@ local function hash()
             return
         end
         md5 = table.concat(md5, " ")
-        args = {"sh", "-c", "printf %s " .. path .. " | " .. md5 .. " | cut -d' ' -f1 | tr '[:lower:]' '[:upper:]'" }
+        cmd["stdin_data"] = path
+        args = {"sh", "-c", md5 .. " | cut -d ' ' -f 1 | tr '[:lower:]' '[:upper:]'" }
     else --windows
         -- https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/get-filehash?view=powershell-7.3
         local hash_command ="$s = [System.IO.MemoryStream]::new(); $w = [System.IO.StreamWriter]::new($s); $w.write(\"" .. path .. "\"); $w.Flush(); $s.Position = 0; Get-FileHash -Algorithm MD5 -InputStream $s | Select-Object -ExpandProperty Hash"
         args = {"powershell", "-NoProfile", "-Command", hash_command}
     end
+    cmd["args"] = args
 
-    local process = mp.command_native({
-        name = 'subprocess',
-        capture_stdout = true,
-        playback_only = false,
-        args = args,
-    })
+    local process = mp.command_native(cmd)
 
     if process.status == 0 then
         local hash = process.stdout:gsub("%s+", "")
