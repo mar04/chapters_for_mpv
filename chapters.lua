@@ -326,11 +326,11 @@ local function hash()
         args = {"powershell", "-NoProfile", "-Command", hash_command}
     end
 
-	local process = mp.command_native({
-		name = 'subprocess',
-		capture_stdout = true,
-		playback_only = false,
-		args = args,
+    local process = mp.command_native({
+        name = 'subprocess',
+        capture_stdout = true,
+        playback_only = false,
+        args = args,
     })
 
     if process.status == 0 then
@@ -547,12 +547,12 @@ local function bake_chapters()
 
     msg.debug("args:", utils.to_string(args))
 
-	local process = mp.command_native({
-		name = 'subprocess',
-		playback_only = false,
+    local process = mp.command_native({
+        name = 'subprocess',
+        playback_only = false,
         capture_stdout = true,
         capture_stderr = true,
-		args = args
+        args = args
     })
 
     if process.status == 0 then
