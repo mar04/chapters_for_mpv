@@ -332,7 +332,7 @@ local function hash()
         args = {"powershell", "-NoProfile", "-Command", hash_command}
     end
     cmd["args"] = args
-
+    msg.debug("hash cmd:", utils.to_string(cmd))
     local process = mp.command_native(cmd)
 
     if process.status == 0 then
