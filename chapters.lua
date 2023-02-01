@@ -198,7 +198,7 @@ local function command_exists(command, ...)
         capture_stdout = true,
         capture_stderr = true,
         playback_only = false,
-        args = {"sh", "-c", "command -v " .. command}
+        args = {"sh", "-c", "command -v -- " .. command}
     })
 
     if process.status == 0 then
@@ -240,7 +240,7 @@ local function full_path()
             end
         end
     else -- unix
-        local command = command_exists("realpath") or command_exists("readlink", "-f") or command_exists("perl", "-MCwd", "-e", "print Cwd::realpath shift")
+        local command = command_exists("realpath", "--") or command_exists("readlink", "-f", "--") or command_exists("perl", "-MCwd", "-e", "print Cwd::realpath shift", "--")
 
         msg.debug("command:", utils.to_string(command))
 
@@ -277,7 +277,7 @@ local function mkdir(path)
     local args = nil
 
     if detect_os() == "unix" then
-        args = {"mkdir", "-p", path}
+        args = {"mkdir", "-p", "--", path}
     else
         args = {"powershell", "-NoProfile", "-Command", "mkdir", path}
     end
