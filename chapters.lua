@@ -426,17 +426,17 @@ local function write_chapters(...)
         chapters_dir = utils.split_path(mp.get_property("path"))
     end
 
-    -- and the name
-    local name = mp.get_property("filename")
+    -- and the filename
+    local filename = mp.get_property("filename")
     if options.hash and options.global_chapters then
-        name = hash()
-        if name == nil then
+        filename = hash()
+        if filename == nil then
             msg.warn("hash function failed, fallback to filename")
-            name = mp.get_property("filename")
+            filename = mp.get_property("filename")
         end
     end
 
-    local chapters_file_path = utils.join_path(chapters_dir, name .. ".ffmetadata")
+    local chapters_file_path = utils.join_path(chapters_dir, filename .. ".ffmetadata")
 
     msg.debug("opening for writing:", chapters_file_path)
     local chapters_file = io.open(chapters_file_path, "w")
