@@ -466,7 +466,8 @@ end
 -- 3. path based version of the chapters file in the global directory
 local function load_chapters()
     local path = mp.get_property("path")
-    local expected_chapters_file = utils.join_path(utils.split_path(path), mp.get_property("filename") .. ".ffmetadata")
+    local filename = mp.get_property("filename")
+    local expected_chapters_file = utils.join_path(utils.split_path(path), filename .. ".ffmetadata")
 
     msg.debug("looking for:", expected_chapters_file)
 
@@ -491,10 +492,10 @@ local function load_chapters()
             expected_chapters_file = utils.join_path(options.chapters_dir, hashed_path .. ".ffmetadata")
         else
             msg.debug("hash function failed, fallback to path")
-            expected_chapters_file = utils.join_path(options.chapters_dir, mp.get_property("filename") .. ".ffmetadata")
+            expected_chapters_file = utils.join_path(options.chapters_dir, filename .. ".ffmetadata")
         end
     else
-        expected_chapters_file = utils.join_path(options.chapters_dir, mp.get_property("filename") .. ".ffmetadata")
+        expected_chapters_file = utils.join_path(options.chapters_dir, filename .. ".ffmetadata")
     end
 
     msg.debug("looking for:", expected_chapters_file)
