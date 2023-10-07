@@ -469,6 +469,8 @@ end
 local function load_chapters()
     local path = mp.get_property("path")
     local filename = mp.get_property("filename")
+
+    -- try with a chapters file in the same directory as the playing file
     local expected_chapters_file = utils.join_path(utils.split_path(path), filename .. ".ffmetadata")
 
     msg.debug("looking for:", expected_chapters_file)
@@ -481,6 +483,8 @@ local function load_chapters()
         return
     end
 
+
+    -- return if global_chapters is not enabled
     if not options.global_chapters then
         msg.debug("not in local, global chapters not enabled, aborting search")
         return
@@ -488,6 +492,8 @@ local function load_chapters()
 
     msg.debug("looking in the global directory")
 
+
+    -- try with a hashed version of the chapters file in the global directory
     if options.hash then
         local hashed_path = hash()
         if hashed_path then
@@ -509,6 +515,7 @@ local function load_chapters()
         mp.set_property("file-local-options/chapters-file", expected_chapters_file)
         return
     end
+
 
     msg.debug("chapters file not found")
 end
