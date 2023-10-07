@@ -94,7 +94,9 @@ local function edit_chapter()
     end
 
     if not user_input_module then
-        msg.error("no mpv-user-input, can't get user input, install: https://github.com/CogentRedTester/mpv-user-input")
+        if options.ask_for_title then
+            msg.error("no mpv-user-input, can't get user input, install: https://github.com/CogentRedTester/mpv-user-input")
+        end
         return
     end
     -- ask user for chapter title
