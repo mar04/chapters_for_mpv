@@ -52,7 +52,9 @@ local options = {
     -- global_chapters_by_xattr works only with global_chapters enabled
     global_chapters_by_xattr = "",
     -- global_chapters_by_hash works only with global_chapters enabled
-    global_chapters_by_hash = true
+    global_chapters_by_hash = true,
+    -- fall back to using the media filename in case both, global_chapters_by_xattr and global_chapters_by_hash, failed or are disabled
+    global_chapters_by_filename = true
 }
 opts.read_options(options)
 
@@ -488,6 +490,10 @@ local function write_chapters(...)
                 msg.warn("hash function failed, fallback to filename")
             end
         end
+        if filename == nil and not options.global_chapters_by_filename then
+            msg.warn("chapter file is not written, as all methods for the global directory are disabled")
+            return
+        end
     end
     if filename == nil then
         filename = mp.get_property("filename")
@@ -604,16 +610,18 @@ local function load_chapters()
 
 
     -- try with path based version of the chapters file in the global directory
-    expected_chapters_file = utils.join_path(options.chapters_dir, filename .. ".ffmetadata")
+    if options.global_chapters_by_filename then
+        expected_chapters_file = utils.join_path(options.chapters_dir, filename .. ".ffmetadata")
 
-    msg.debug("looking for:", expected_chapters_file)
+        msg.debug("looking for:", expected_chapters_file)
 
-    file = utils.file_info(expected_chapters_file)
+        file = utils.file_info(expected_chapters_file)
 
-    if file then
-        msg.debug("found in the global directory, loading..")
-        mp.set_property("file-local-options/chapters-file", expected_chapters_file)
-        return
+        if file then
+            msg.debug("found in the global directory, loading..")
+            mp.set_property("file-local-options/chapters-file", expected_chapters_file)
+            return
+        end
     end
 
 
