@@ -427,13 +427,15 @@ local function write_chapters(...)
     end
 
     -- and the filename
-    local filename = mp.get_property("filename")
+    local filename = nil
     if options.hash and options.global_chapters then
         filename = hash()
         if filename == nil then
             msg.warn("hash function failed, fallback to filename")
-            filename = mp.get_property("filename")
         end
+    end
+    if filename == nil then
+        filename = mp.get_property("filename")
     end
 
     local chapters_file_path = utils.join_path(chapters_dir, filename .. ".ffmetadata")
