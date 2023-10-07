@@ -50,8 +50,8 @@ local options = {
     chapters_dir = mp.command_native({"expand-path", "~~home/chapters"}),
     -- global_chapters_by_xattr works only with global_chapters enabled
     global_chapters_by_xattr = "",
-    -- hash works only with global_chapters enabled
-    hash = true
+    -- global_chapters_by_hash works only with global_chapters enabled
+    global_chapters_by_hash = true
 }
 opts.read_options(options)
 
@@ -472,14 +472,14 @@ local function write_chapters(...)
         if options.global_chapters_by_xattr ~= "" then
             filename = xattr()
             if filename == nil then
-                if options.hash then
+                if options.global_chapters_by_hash then
                     msg.warn("XATTR ID function failed, fallback to hash function")
                 else
                     msg.warn("XATTR ID function failed, fallback to filename")
                 end
             end
         end
-        if filename == nil and options.hash then
+        if filename == nil and options.global_chapters_by_hash then
             filename = hash()
             if filename == nil then
                 msg.warn("hash function failed, fallback to filename")
@@ -562,7 +562,7 @@ local function load_chapters()
                 return
             end
         else
-            if options.hash then
+            if options.global_chapters_by_hash then
                 msg.debug("XATTR ID function failed, fallback to hash function")
             else
                 msg.debug("XATTR ID function failed, fallback to path")
@@ -572,7 +572,7 @@ local function load_chapters()
 
 
     -- try with a hashed version of the chapters file in the global directory
-    if options.hash then
+    if options.global_chapters_by_hash then
         local hashed_path = hash()
         if hashed_path then
             expected_chapters_file = utils.join_path(options.chapters_dir, hashed_path .. ".ffmetadata")
