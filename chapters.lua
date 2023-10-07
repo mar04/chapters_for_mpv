@@ -445,20 +445,19 @@ local function write_chapters(...)
     -- figure out the directory
     local chapters_dir
     if options.global_chapters then
-        local dir = utils.file_info(options.chapters_dir)
+        chapters_dir = options.chapters_dir
+
+        local dir = utils.file_info(chapters_dir)
         if dir then
             if dir.is_dir then
-                msg.debug("options.chapters_dir exists:", options.chapters_dir)
-                chapters_dir = options.chapters_dir
+                msg.debug("options.chapters_dir exists:", chapters_dir)
             else
                 msg.error("options.chapters_dir is not a directory")
                 return
             end
         else
-            msg.verbose("options.chapters_dir doesn't exists:", options.chapters_dir)
-            if mkdir(options.chapters_dir) then
-                chapters_dir = options.chapters_dir
-            else
+            msg.verbose("options.chapters_dir doesn't exists:", chapters_dir)
+            if not mkdir(chapters_dir) then
                 return
             end
         end
