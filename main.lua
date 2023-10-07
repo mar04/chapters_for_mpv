@@ -48,7 +48,7 @@ local options = {
     -- save all chapter files in a single global directory or next to the playback file
     local_chapters = true,
     global_chapters = false,
-    chapters_dir = mp.command_native({"expand-path", "~~home/chapters"}),
+    chapters_dir = mp.command_native({"expand-path", "~~home/scripts/" .. mp.get_script_name()}),
     -- global_chapters_by_xattr works only with global_chapters enabled
     global_chapters_by_xattr = "",
     -- global_chapters_by_hash works only with global_chapters enabled
