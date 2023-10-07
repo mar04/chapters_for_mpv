@@ -204,7 +204,7 @@ local function command_exists(command, ...)
     })
 
     if process.status == 0 then
-        local command_path = process.stdout:gsub("\n", "")
+        local command_path = process.stdout:sub(1, -2)
         msg.debug("command found:", command_path)
         return {command_path, ...}
     else
@@ -230,7 +230,7 @@ local function full_path()
         })
 
         if process.status == 0 then
-            local full_path = process.stdout:gsub("\n", "")
+            local full_path = process.stdout:sub(1, -2)
             msg.debug("windows, full path:", full_path)
             return full_path
         else
@@ -259,7 +259,7 @@ local function full_path()
             })
 
             if process.status == 0 then
-                local full_path = process.stdout:gsub("\n", "")
+                local full_path = process.stdout:sub(1, -2)
                 msg.debug("unix, full path:", full_path)
                 return full_path
             end
