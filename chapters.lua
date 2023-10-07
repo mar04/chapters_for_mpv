@@ -322,6 +322,7 @@ local function xattr()
         capture_stdout = true,
         capture_stderr = true,
         playback_only = false,
+        env = {"LC_ALL=C"},
         args = {"getfattr", "--only-values", "--name", options.global_chapters_by_xattr, "--", path}
     })
 
@@ -329,7 +330,11 @@ local function xattr()
         msg.debug("getfattr success:", path)
         return process.stdout
     else
-        msg.debug("XATTR unset or getfattr failure:", path)
+        if process.stderr:find("^.*: No such attribute\n$") then
+            msg.debug("XATTR unset:", path)
+        else
+            msg.error("getfattr failure:", path)
+        end
         return
     end
 end
