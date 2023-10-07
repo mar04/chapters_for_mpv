@@ -38,7 +38,7 @@ local chapters_modified = false
 
 local options = {
     -- ask for title or leave it empty
-    ask_for_title = true,
+    ask_for_title = false,
     -- placeholder when asking for title of a new chapter
     placeholder_title = "Chapter ",
     -- pause the playback when asking for chapter title
@@ -46,10 +46,15 @@ local options = {
     autoload = true,
     autosave = false,
     -- save all chapter files in a single global directory or next to the playback file
+    local_chapters = true,
     global_chapters = false,
-    chapters_dir = mp.command_native({"expand-path", "~~home/chapters"}),
-    -- hash works only with global_chapters enabled
-    hash = true
+    chapters_dir = mp.command_native({"expand-path", "~~home/scripts/" .. mp.get_script_name()}),
+    -- global_chapters_by_xattr works only with global_chapters enabled
+    global_chapters_by_xattr = "",
+    -- global_chapters_by_hash works only with global_chapters enabled
+    global_chapters_by_hash = true,
+    -- fall back to using the media filename in case both, global_chapters_by_xattr and global_chapters_by_hash, failed or are disabled
+    global_chapters_by_filename = true
 }
 opts.read_options(options)
 
@@ -89,7 +94,9 @@ local function edit_chapter()
     end
 
     if not user_input_module then
-        msg.error("no mpv-user-input, can't get user input, install: https://github.com/CogentRedTester/mpv-user-input")
+        if options.ask_for_title then
+            msg.error("no mpv-user-input, can't get user input, install: https://github.com/CogentRedTester/mpv-user-input")
+        end
         return
     end
     -- ask user for chapter title
@@ -202,7 +209,7 @@ local function command_exists(command, ...)
     })
 
     if process.status == 0 then
-        local command_path = process.stdout:gsub("\n", "")
+        local command_path = process.stdout:sub(1, -2)
         msg.debug("command found:", command_path)
         return {command_path, ...}
     else
@@ -228,7 +235,7 @@ local function full_path()
         })
 
         if process.status == 0 then
-            local full_path = process.stdout:gsub("\n", "")
+            local full_path = process.stdout:sub(1, -2)
             msg.debug("windows, full path:", full_path)
             return full_path
         else
@@ -257,7 +264,7 @@ local function full_path()
             })
 
             if process.status == 0 then
-                local full_path = process.stdout:gsub("\n", "")
+                local full_path = process.stdout:sub(1, -2)
                 msg.debug("unix, full path:", full_path)
                 return full_path
             end
@@ -296,6 +303,44 @@ local function mkdir(path)
     else
         msg.error("mkdir failure:", path)
         return false
+    end
+end
+
+
+-- returns value of the XATTR named via options.global_chapters_by_xattr of the full path of the current media file
+local function xattr()
+    if detect_os() == "windows" then
+        msg.warn("windows, XATTRs are not supported")
+        return
+    end
+
+    local path = full_path()
+    if path == nil then
+        msg.debug("something is wrong with the path, can't get full_path, can't get XATTR of it")
+        return
+    end
+
+    msg.debug("read XATTR", options.global_chapters_by_xattr .. ":" , path)
+
+    local process = mp.command_native({
+        name = "subprocess",
+        capture_stdout = true,
+        capture_stderr = true,
+        playback_only = false,
+        env = {"LC_ALL=C"},
+        args = {"getfattr", "--only-values", "--name", options.global_chapters_by_xattr, "--", path}
+    })
+
+    if process.status == 0 then
+        msg.debug("getfattr success:", path)
+        return process.stdout
+    else
+        if process.stderr:find("^.*: No such attribute\n$") then
+            msg.debug("XATTR unset:", path)
+        else
+            msg.error("getfattr failure:", path)
+        end
+        return
     end
 end
 
@@ -405,38 +450,58 @@ local function write_chapters(...)
     -- figure out the directory
     local chapters_dir
     if options.global_chapters then
-        local dir = utils.file_info(options.chapters_dir)
+        chapters_dir = options.chapters_dir
+
+        local dir = utils.file_info(chapters_dir)
         if dir then
             if dir.is_dir then
-                msg.debug("options.chapters_dir exists:", options.chapters_dir)
-                chapters_dir = options.chapters_dir
+                msg.debug("options.chapters_dir exists:", chapters_dir)
             else
                 msg.error("options.chapters_dir is not a directory")
                 return
             end
         else
-            msg.verbose("options.chapters_dir doesn't exists:", options.chapters_dir)
-            if mkdir(options.chapters_dir) then
-                chapters_dir = options.chapters_dir
-            else
+            msg.verbose("options.chapters_dir doesn't exists:", chapters_dir)
+            if not mkdir(chapters_dir) then
                 return
             end
         end
-    else
+    elseif options.local_chapters then
         chapters_dir = utils.split_path(mp.get_property("path"))
+    else
+        msg.error("chapters file not written, as both, options.local_chapters and options.global_chapters, are disabled")
+        return
     end
 
-    -- and the name
-    local name = mp.get_property("filename")
-    if options.hash and options.global_chapters then
-        name = hash()
-        if name == nil then
-            msg.warn("hash function failed, fallback to filename")
-            name = mp.get_property("filename")
+    -- and the filename
+    local filename = nil
+    if options.global_chapters then
+        if options.global_chapters_by_xattr ~= "" then
+            filename = xattr()
+            if filename == nil then
+                if options.global_chapters_by_hash then
+                    msg.warn("XATTR ID function failed, fallback to hash function")
+                else
+                    msg.warn("XATTR ID function failed, fallback to filename")
+                end
+            end
+        end
+        if filename == nil and options.global_chapters_by_hash then
+            filename = hash()
+            if filename == nil then
+                msg.warn("hash function failed, fallback to filename")
+            end
+        end
+        if filename == nil and not options.global_chapters_by_filename then
+            msg.warn("chapter file is not written, as all methods for the global directory are disabled")
+            return
         end
     end
+    if filename == nil then
+        filename = mp.get_property("filename")
+    end
 
-    local chapters_file_path = utils.join_path(chapters_dir, name .. ".ffmetadata")
+    local chapters_file_path = utils.join_path(chapters_dir, filename .. ".ffmetadata")
 
     msg.debug("opening for writing:", chapters_file_path)
     local chapters_file = io.open(chapters_file_path, "w")
@@ -462,50 +527,105 @@ end
 
 -- priority:
 -- 1. chapters file in the same directory as the playing file
--- 2. hashed version of the chapters file in the global directory
--- 3. path based version of the chapters file in the global directory
+-- 2. chapters file by XATTR ID in the global directory
+-- 3. hashed version of the chapters file in the global directory
+-- 4. path based version of the chapters file in the global directory
 local function load_chapters()
     local path = mp.get_property("path")
-    local expected_chapters_file = utils.join_path(utils.split_path(path), mp.get_property("filename") .. ".ffmetadata")
+    local filename = mp.get_property("filename")
+    local expected_chapters_file = nil
+    local file = nil
 
-    msg.debug("looking for:", expected_chapters_file)
+    -- try with a chapters file in the same directory as the playing file
+    if options.local_chapters then
+        expected_chapters_file = utils.join_path(utils.split_path(path), filename .. ".ffmetadata")
 
-    local file = utils.file_info(expected_chapters_file)
+        msg.debug("looking for:", expected_chapters_file)
 
-    if file then
-        msg.debug("found in the local directory, loading..")
-        mp.set_property("file-local-options/chapters-file", expected_chapters_file)
-        return
+        file = utils.file_info(expected_chapters_file)
+
+        if file then
+            msg.debug("found in the local directory, loading..")
+            mp.set_property("file-local-options/chapters-file", expected_chapters_file)
+            return
+        end
     end
 
+
+    -- return if global_chapters is not enabled
     if not options.global_chapters then
-        msg.debug("not in local, global chapters not enabled, aborting search")
+        if options.local_chapters then
+            msg.debug("not in local, global chapters not enabled, aborting search")
+        else
+            msg.warn("local and global chapters not enabled, aborting search")
+        end
         return
     end
 
     msg.debug("looking in the global directory")
 
-    if options.hash then
+
+    -- try with a chapters file by XATTR ID in the global directory
+    if options.global_chapters_by_xattr ~= "" then
+        local xattr_path = xattr()
+        if xattr_path then
+            expected_chapters_file = utils.join_path(options.chapters_dir, xattr_path .. ".ffmetadata")
+
+            msg.debug("looking for:", expected_chapters_file)
+
+            file = utils.file_info(expected_chapters_file)
+
+            if file then
+                msg.debug("found in the global directory, loading..")
+                mp.set_property("file-local-options/chapters-file", expected_chapters_file)
+                return
+            end
+        else
+            if options.global_chapters_by_hash then
+                msg.debug("XATTR ID function failed, fallback to hash function")
+            else
+                msg.debug("XATTR ID function failed, fallback to path")
+            end
+        end
+    end
+
+
+    -- try with a hashed version of the chapters file in the global directory
+    if options.global_chapters_by_hash then
         local hashed_path = hash()
         if hashed_path then
             expected_chapters_file = utils.join_path(options.chapters_dir, hashed_path .. ".ffmetadata")
+
+            msg.debug("looking for:", expected_chapters_file)
+
+            file = utils.file_info(expected_chapters_file)
+
+            if file then
+                msg.debug("found in the global directory, loading..")
+                mp.set_property("file-local-options/chapters-file", expected_chapters_file)
+                return
+            end
         else
             msg.debug("hash function failed, fallback to path")
-            expected_chapters_file = utils.join_path(options.chapters_dir, mp.get_property("filename") .. ".ffmetadata")
         end
-    else
-        expected_chapters_file = utils.join_path(options.chapters_dir, mp.get_property("filename") .. ".ffmetadata")
     end
 
-    msg.debug("looking for:", expected_chapters_file)
 
-    file = utils.file_info(expected_chapters_file)
+    -- try with path based version of the chapters file in the global directory
+    if options.global_chapters_by_filename then
+        expected_chapters_file = utils.join_path(options.chapters_dir, filename .. ".ffmetadata")
 
-    if file then
-        msg.debug("found in the global directory, loading..")
-        mp.set_property("file-local-options/chapters-file", expected_chapters_file)
-        return
+        msg.debug("looking for:", expected_chapters_file)
+
+        file = utils.file_info(expected_chapters_file)
+
+        if file then
+            msg.debug("found in the global directory, loading..")
+            mp.set_property("file-local-options/chapters-file", expected_chapters_file)
+            return
+        end
     end
+
 
     msg.debug("chapters file not found")
 end
