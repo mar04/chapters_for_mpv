@@ -498,13 +498,24 @@ local function load_chapters()
         local hashed_path = hash()
         if hashed_path then
             expected_chapters_file = utils.join_path(options.chapters_dir, hashed_path .. ".ffmetadata")
+
+            msg.debug("looking for:", expected_chapters_file)
+
+            file = utils.file_info(expected_chapters_file)
+
+            if file then
+                msg.debug("found in the global directory, loading..")
+                mp.set_property("file-local-options/chapters-file", expected_chapters_file)
+                return
+            end
         else
             msg.debug("hash function failed, fallback to path")
-            expected_chapters_file = utils.join_path(options.chapters_dir, filename .. ".ffmetadata")
         end
-    else
-        expected_chapters_file = utils.join_path(options.chapters_dir, filename .. ".ffmetadata")
     end
+
+
+    -- try with path based version of the chapters file in the global directory
+    expected_chapters_file = utils.join_path(options.chapters_dir, filename .. ".ffmetadata")
 
     msg.debug("looking for:", expected_chapters_file)
 
