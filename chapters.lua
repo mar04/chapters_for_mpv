@@ -38,7 +38,7 @@ local chapters_modified = false
 
 local options = {
     -- ask for title or leave it empty
-    ask_for_title = true,
+    ask_for_title = false,
     -- placeholder when asking for title of a new chapter
     placeholder_title = "Chapter ",
     -- pause the playback when asking for chapter title
