@@ -46,6 +46,7 @@ local options = {
     autoload = true,
     autosave = false,
     -- save all chapter files in a single global directory or next to the playback file
+    local_chapters = true,
     global_chapters = false,
     chapters_dir = mp.command_native({"expand-path", "~~home/chapters"}),
     -- global_chapters_by_xattr works only with global_chapters enabled
@@ -461,8 +462,11 @@ local function write_chapters(...)
                 return
             end
         end
-    else
+    elseif options.local_chapters then
         chapters_dir = utils.split_path(mp.get_property("path"))
+    else
+        msg.error("chapters file not written, as both, options.local_chapters and options.global_chapters, are disabled")
+        return
     end
 
     -- and the filename
@@ -521,24 +525,32 @@ end
 local function load_chapters()
     local path = mp.get_property("path")
     local filename = mp.get_property("filename")
+    local expected_chapters_file = nil
+    local file = nil
 
     -- try with a chapters file in the same directory as the playing file
-    local expected_chapters_file = utils.join_path(utils.split_path(path), filename .. ".ffmetadata")
+    if options.local_chapters then
+        expected_chapters_file = utils.join_path(utils.split_path(path), filename .. ".ffmetadata")
 
-    msg.debug("looking for:", expected_chapters_file)
+        msg.debug("looking for:", expected_chapters_file)
 
-    local file = utils.file_info(expected_chapters_file)
+        file = utils.file_info(expected_chapters_file)
 
-    if file then
-        msg.debug("found in the local directory, loading..")
-        mp.set_property("file-local-options/chapters-file", expected_chapters_file)
-        return
+        if file then
+            msg.debug("found in the local directory, loading..")
+            mp.set_property("file-local-options/chapters-file", expected_chapters_file)
+            return
+        end
     end
 
 
     -- return if global_chapters is not enabled
     if not options.global_chapters then
-        msg.debug("not in local, global chapters not enabled, aborting search")
+        if options.local_chapters then
+            msg.debug("not in local, global chapters not enabled, aborting search")
+        else
+            msg.warn("local and global chapters not enabled, aborting search")
+        end
         return
     end
 
