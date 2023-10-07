@@ -13,8 +13,9 @@ the same media file again.
 * remove current chapter
 * save chapters as a text file, either in the same directory as the media file
   or in a global directory
-* optionally can hash file paths in an attempt to uniquely identify media files
-  if chapter files are stored in a central directory
+* optionally can read a specified XATTR and/or hash file paths in an attempt to
+  uniquely identify media files if chapter files are stored in a central
+  directory
 * option to automatically save/load chapter files
 * option to use ffmpeg to put the chapters into the media file container as a
   metadata, so that other media players, like vlc, can make use of them

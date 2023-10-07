@@ -48,6 +48,8 @@ local options = {
     -- save all chapter files in a single global directory or next to the playback file
     global_chapters = false,
     chapters_dir = mp.command_native({"expand-path", "~~home/chapters"}),
+    -- global_chapters_by_xattr works only with global_chapters enabled
+    global_chapters_by_xattr = "",
     -- hash works only with global_chapters enabled
     hash = true
 }
@@ -300,6 +302,39 @@ local function mkdir(path)
 end
 
 
+-- returns value of the XATTR named via options.global_chapters_by_xattr of the full path of the current media file
+local function xattr()
+    if detect_os() == "windows" then
+        msg.warn("windows, XATTRs are not supported")
+        return
+    end
+
+    local path = full_path()
+    if path == nil then
+        msg.debug("something is wrong with the path, can't get full_path, can't get XATTR of it")
+        return
+    end
+
+    msg.debug("read XATTR", options.global_chapters_by_xattr .. ":" , path)
+
+    local process = mp.command_native({
+        name = "subprocess",
+        capture_stdout = true,
+        capture_stderr = true,
+        playback_only = false,
+        args = {"getfattr", "--only-values", "--name", options.global_chapters_by_xattr, "--", path}
+    })
+
+    if process.status == 0 then
+        msg.debug("getfattr success:", path)
+        return process.stdout
+    else
+        msg.debug("XATTR unset or getfattr failure:", path)
+        return
+    end
+end
+
+
 -- returns md5 hash of the full path of the current media file
 local function hash()
     local path = full_path()
@@ -428,10 +463,22 @@ local function write_chapters(...)
 
     -- and the filename
     local filename = nil
-    if options.hash and options.global_chapters then
-        filename = hash()
-        if filename == nil then
-            msg.warn("hash function failed, fallback to filename")
+    if options.global_chapters then
+        if options.global_chapters_by_xattr ~= "" then
+            filename = xattr()
+            if filename == nil then
+                if options.hash then
+                    msg.warn("XATTR ID function failed, fallback to hash function")
+                else
+                    msg.warn("XATTR ID function failed, fallback to filename")
+                end
+            end
+        end
+        if filename == nil and options.hash then
+            filename = hash()
+            if filename == nil then
+                msg.warn("hash function failed, fallback to filename")
+            end
         end
     end
     if filename == nil then
@@ -464,8 +511,9 @@ end
 
 -- priority:
 -- 1. chapters file in the same directory as the playing file
--- 2. hashed version of the chapters file in the global directory
--- 3. path based version of the chapters file in the global directory
+-- 2. chapters file by XATTR ID in the global directory
+-- 3. hashed version of the chapters file in the global directory
+-- 4. path based version of the chapters file in the global directory
 local function load_chapters()
     local path = mp.get_property("path")
     local filename = mp.get_property("filename")
@@ -491,6 +539,31 @@ local function load_chapters()
     end
 
     msg.debug("looking in the global directory")
+
+
+    -- try with a chapters file by XATTR ID in the global directory
+    if options.global_chapters_by_xattr ~= "" then
+        local xattr_path = xattr()
+        if xattr_path then
+            expected_chapters_file = utils.join_path(options.chapters_dir, xattr_path .. ".ffmetadata")
+
+            msg.debug("looking for:", expected_chapters_file)
+
+            file = utils.file_info(expected_chapters_file)
+
+            if file then
+                msg.debug("found in the global directory, loading..")
+                mp.set_property("file-local-options/chapters-file", expected_chapters_file)
+                return
+            end
+        else
+            if options.hash then
+                msg.debug("XATTR ID function failed, fallback to hash function")
+            else
+                msg.debug("XATTR ID function failed, fallback to path")
+            end
+        end
+    end
 
 
     -- try with a hashed version of the chapters file in the global directory
