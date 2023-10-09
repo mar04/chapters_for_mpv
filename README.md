@@ -23,7 +23,7 @@ the same media file again.
 ## Installation
 
 * place **chapters.lua** in your **~/.config/mpv/scripts** directory
-* optionally create a config file named **chapters.conf** in **~/.config/mpv/scripts-opts**, check out example config file
+* optionally create a config file named **chapters.conf** in **~/.config/mpv/script-opts**, check out example config file
 * add keybindings to your **~/.config/mpv/input.conf**, example:
 
   ```ini
