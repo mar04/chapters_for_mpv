@@ -61,7 +61,6 @@ msg.debug("options:", utils.to_string(options))
 local function change_title_callback(user_input)
     local chapter_index = edited_chapter
     input.terminate()
-    -- if user_input == nil or err ~= nil then
     if user_input == nil then
         msg.warn("no chapter title provided:")
         return
