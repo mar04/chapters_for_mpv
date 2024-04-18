@@ -6,6 +6,8 @@ played media, be it video or audio, local file or a stream. Chapters you create
 can be saved into a separate text file and automatically loaded when you open
 the same media file again.
 
+This version of the script requires mpv 0.38 or newer.
+
 ## Features
 
 * add a new chapter, optionally with a title
@@ -33,12 +35,6 @@ the same media file again.
   N       script-binding chapters/write_chapters
   ctrl+,  script-binding chapters/bake_chapters
   ```
-
-* if you want to have the ability to name/rename chapters, you'll need to install
-  <https://github.com/CogentRedTester/mpv-user-input>
-
-  * optionally create a config file for it **~/.config/mpv/user_input.conf** where
-  you can configure text size and such
 
 ## Thanks
 

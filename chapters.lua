@@ -28,11 +28,10 @@ SOFTWARE.
 local utils = require 'mp.utils'
 local msg = require 'mp.msg'
 local opts = require 'mp.options'
+local input = require 'mp.input'
 
-package.path = mp.command_native({"expand-path", "~~/script-modules/?.lua;"}) .. package.path
-local user_input_module, input = pcall(require, "user-input-module")
-
-
+-- can't pass the chapter number to the callback, so let's pass it through a global var
+local edited_chapter = 0
 local chapters_modified = false
 
 
@@ -59,9 +58,12 @@ msg.debug("options:", utils.to_string(options))
 -- CHAPTER MANIPULATION --------------------------------------------------------
 
 
-local function change_title_callback(user_input, err, chapter_index)
-    if user_input == nil or err ~= nil then
-        msg.warn("no chapter title provided:", err)
+local function change_title_callback(user_input)
+    local chapter_index = edited_chapter
+    input.terminate()
+    -- if user_input == nil or err ~= nil then
+    if user_input == nil then
+        msg.warn("no chapter title provided:")
         return
     end
 
@@ -88,24 +90,17 @@ local function edit_chapter()
         return
     end
 
-    if not user_input_module then
-        msg.error("no mpv-user-input, can't get user input, install: https://github.com/CogentRedTester/mpv-user-input")
-        return
-    end
-    -- ask user for chapter title
-    -- (+1 because mpv indexes from 0, lua from 1)
-    input.get_user_input(change_title_callback, {
-        request_text = "title of the chapter:",
-        default_input = chapter_list[mpv_chapter_index + 1].title,
-        cursor_pos = #(chapter_list[mpv_chapter_index + 1].title) + 1,
-    }, mpv_chapter_index + 1)
+    input.get({
+        prompt = "title of the chapter:",
+        submit = change_title_callback,
+        default_text = chapter_list[mpv_chapter_index + 1].title,
+        cursor_position = #(chapter_list[mpv_chapter_index + 1].title) + 1,
+    })
+
+    edited_chapter = mpv_chapter_index + 1
 
     if options.pause_on_input then
         mp.set_property_bool("pause", true)
-        -- FIXME: for whatever reason osd gets hidden when we pause the
-        -- playback like that, workaround to make input prompt appear
-        -- right away without requiring mouse or keyboard action
-        mp.osd_message(" ", 0.1)
     end
 end
 
@@ -131,23 +126,17 @@ local function add_chapter()
     chapters_modified = true
 
     if options.ask_for_title then
-        if not user_input_module then
-            msg.error("no mpv-user-input, can't get user input, install: https://github.com/CogentRedTester/mpv-user-input")
-            return
-        end
-        -- ask user for chapter title
-        input.get_user_input(change_title_callback, {
-            request_text = "title of the chapter:",
-            default_input = options.placeholder_title .. chapter_index,
-            cursor_pos = #(options.placeholder_title .. chapter_index) + 1,
-        }, chapter_index)
+        input.get({
+            prompt = "title of the chapter:",
+            submit = change_title_callback,
+            default_text = options.placeholder_title .. chapter_index,
+            cursor_position = #(options.placeholder_title .. chapter_index) + 1,
+        })
+
+        edited_chapter = chapter_index
 
         if options.pause_on_input then
             mp.set_property_bool("pause", true)
-            -- FIXME: for whatever reason osd gets hidden when we pause the
-            -- playback like that, workaround to make input prompt appear
-            -- right away without requiring mouse or keyboard action
-            mp.osd_message(" ", 0.1)
         end
     end
 end
@@ -576,9 +565,7 @@ if options.autosave then
     mp.add_hook("on_unload", 50, function () write_chapters(false) end)
 end
 
-if user_input_module then
-    mp.add_hook("on_unload", 50, function () input.cancel_user_input() end)
-end
+mp.add_hook("on_unload", 50, function () input.terminate() end)
 
 
 -- BINDINGS --------------------------------------------------------------------
