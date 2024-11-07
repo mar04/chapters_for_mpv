@@ -315,6 +315,34 @@ local function rm(path)
 end
 
 
+local function rm(path)
+    local path = "\"" .. path .. "\""
+    local args = nil
+
+    if detect_os() == "unix" then
+        args = {"rm", path}
+    else
+        args = {"powershell", "-NoProfile", "-Command", "rm", path}
+    end
+
+    local process = mp.command_native({
+        name = 'subprocess',
+        playback_only = false,
+        capture_stdout = true,
+        capture_stderr = true,
+        args = args,
+    })
+
+    if process.status == 0 then
+        msg.debug("rm success:", path)
+        return true
+    else
+        msg.error("rm failure:", process.stderr)
+        return false
+    end
+end
+
+
 -- returns md5 hash of the full path of the current media file
 local function hash()
     local path = full_path()
