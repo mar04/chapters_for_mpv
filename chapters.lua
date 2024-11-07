@@ -287,6 +287,33 @@ local function mkdir(path)
     end
 end
 
+local function rm(path)
+    local path = "\"" .. path .. "\""
+    local args = nil
+
+    if detect_os() == "unix" then
+        args = {"rm", path}
+    else
+        args = {"powershell", "-NoProfile", "-Command", "rm", path}
+    end
+
+    local process = mp.command_native({
+        name = 'subprocess',
+        playback_only = false,
+        capture_stdout = true,
+        capture_stderr = true,
+        args = args,
+    })
+
+    if process.status == 0 then
+        msg.debug("rm success:", path)
+        return true
+    else
+        msg.error("rm failure:", process.stderr)
+        return false
+    end
+end
+
 
 -- returns md5 hash of the full path of the current media file
 local function hash()
@@ -340,36 +367,45 @@ format that we need
 ;FFMETADATA1
 ;file=/path/to/file.mvk
 [CHAPTER]
-START=21958000000
-END=51417000000
+TIMEBASE=1/1000
+START=219580
+END=514170
 title=Chapter 1
 [CHAPTER]
-START=51417000000
-END=85500000000
+TIMEBASE=1/1000
+START=514170
+END=855000
 title=Chapter 2
 
-documented here: https://ffmpeg.org/ffmpeg-formats.html#Metadata-1
+documented here: https://ffmpeg.org/ffmpeg-formats.html#metadata
 ]]
-local function construct_ffmetadata()
+local function construct_ffmetadata(chapter_zero)
+    -- chapter_zero = chapter_zero or false
     local chapter_count = mp.get_property_number("chapter-list/count")
     local all_chapters = mp.get_property_native("chapter-list")
 
     local ffmetadata = ";FFMETADATA1\n;file=" .. full_path()
 
+    --ffmpeg wants a chapter starting at 0:00 when using mp4 container
+    --see: https://forum.videohelp.com/threads/403564-MP4-File-with-no-Chapter-at-00-00-00-000-Breaks-FFMPEG-Conversion
+    if chapter_zero then
+        ffmetadata = ffmetadata .. "\n[CHAPTER]\nTIMEBASE=1/1000\nSTART=0\nEND=" .. all_chapters[1].time * 1000 .. "\ntitle=0"
+    end
+
     for i, c in ipairs(all_chapters) do
         local c_title = c.title
-        local c_start = c.time * 1000000000
+        local c_start = c.time * 1000
         local c_end
 
         if i < chapter_count then
-            c_end = all_chapters[i+1].time * 1000000000
+            c_end = all_chapters[i+1].time * 1000
         else
-            c_end = (mp.get_property_number("duration") or c.time) * 1000000000
+            c_end = (mp.get_property_number("duration") or c.time) * 1000
         end
 
         msg.debug(i, "c_title", c_title, "c_start:", c_start, "c_end", c_end)
 
-        ffmetadata = ffmetadata .. "\n[CHAPTER]\nSTART=" .. c_start .. "\nEND=" .. c_end .. "\ntitle=" .. c_title
+        ffmetadata = ffmetadata .. "\n[CHAPTER]\nTIMEBASE=1/1000\nSTART=" .. c_start .. "\nEND=" .. c_end .. "\ntitle=" .. c_title
     end
 
     return ffmetadata
@@ -381,18 +417,19 @@ end
 
 -- args:
 --      osd - if true, display an osd message
---      force -- if true write chapters file even if there are no changes
+--      bake - if true write chapters file even if there are no changes
+--      chapter_zero - if true generate a chapter at 0:00
 -- on success returns path of the chapters file, nil on failure
 local function write_chapters(...)
-    local osd, force = ...
-    if not force and (mp.get_property_number("chapter-list/count") == 0 or not chapters_modified) then
+    local osd, bake, chapter_zero = ...
+    if not bake and (mp.get_property_number("chapter-list/count") == 0 or not chapters_modified) then
         msg.debug("nothing to write")
         return
     end
 
     -- figure out the directory
     local chapters_dir
-    if options.global_chapters then
+    if options.global_chapters and not bake then
         local dir = utils.file_info(options.chapters_dir)
         if dir then
             if dir.is_dir then
@@ -416,7 +453,7 @@ local function write_chapters(...)
 
     -- and the name
     local name = mp.get_property("filename")
-    if options.hash and options.global_chapters then
+    if options.hash and options.global_chapters and not bake then
         name = hash()
         if name == nil then
             msg.warn("hash function failed, fallback to filename")
@@ -425,7 +462,9 @@ local function write_chapters(...)
     end
 
     local chapters_file_path = utils.join_path(chapters_dir, name .. ".ffmetadata")
-
+    if bake then
+        chapters_file_path = chapters_file_path .. ".tmp"
+    end
     msg.debug("opening for writing:", chapters_file_path)
     local chapters_file = io.open(chapters_file_path, "w")
     if chapters_file == nil then
@@ -433,7 +472,7 @@ local function write_chapters(...)
         return
     end
 
-    local success, error = chapters_file:write(construct_ffmetadata())
+    local success, error = chapters_file:write(construct_ffmetadata(chapter_zero))
     chapters_file:close()
 
     if success then
@@ -500,19 +539,14 @@ end
 
 
 local function bake_chapters()
+    local ext
+    local filename = mp.get_property("filename")
+    local output_name
+
     if mp.get_property_number("chapter-list/count") == 0 then
         msg.verbose("no chapters present")
         return
     end
-
-    local chapters_file_path = write_chapters(false, true)
-    if not chapters_file_path then
-        msg.error("no chapters file")
-        return
-    end
-
-    local filename = mp.get_property("filename")
-    local output_name
 
     -- extract file extension
     local reverse_dot_index = filename:reverse():find(".", 1, true)
@@ -521,13 +555,21 @@ local function bake_chapters()
         output_name = filename .. ".chapters.mkv"
     else
         local dot_index = #filename + 1 - reverse_dot_index
-        local ext = filename:sub(dot_index + 1)
+        ext = filename:sub(dot_index + 1)
         msg.debug("ext:", ext)
         if ext ~= "mkv" and ext ~= "mp4" and ext ~= "webm" then
             msg.debug("fallback to .mkv")
             ext = "mkv"
         end
         output_name = filename:sub(1, dot_index) .. "chapters." .. ext
+    end
+
+    local require_chapter_zero = ext == "mp4"
+
+    local chapters_file_path = write_chapters(false, true, require_chapter_zero)
+    if not chapters_file_path then
+        msg.error("no chapters file")
+        return
     end
 
     local file_path = mp.get_property("path")
@@ -550,6 +592,9 @@ local function bake_chapters()
     else
         msg.error("failed to write file:\n", process.stderr)
     end
+
+    -- remove temporary chapters file
+    rm(chapters_file_path)
 end
 
 
