@@ -15,6 +15,7 @@ This version of the script requires mpv 0.38 or newer.
 * remove current chapter
 * save chapters as a text file, either in the same directory as the media file
   or in a global directory
+* save chapters as an xml file
 * optionally can hash file paths in an attempt to uniquely identify media files
   if chapter files are stored in a central directory
 * option to automatically save/load chapter files
@@ -33,6 +34,7 @@ This version of the script requires mpv 0.38 or newer.
   ctrl+m  script-binding chapters/remove_chapter
   ctrl+.  script-binding chapters/edit_chapter
   N       script-binding chapters/write_chapters
+  ctrl+b  script-binding chapters/write_xml
   ctrl+,  script-binding chapters/bake_chapters
   ```
 

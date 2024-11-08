@@ -287,41 +287,14 @@ local function mkdir(path)
     end
 end
 
+
 local function rm(path)
-    local path = "\"" .. path .. "\""
     local args = nil
 
     if detect_os() == "unix" then
         args = {"rm", path}
     else
-        args = {"powershell", "-NoProfile", "-Command", "rm", path}
-    end
-
-    local process = mp.command_native({
-        name = 'subprocess',
-        playback_only = false,
-        capture_stdout = true,
-        capture_stderr = true,
-        args = args,
-    })
-
-    if process.status == 0 then
-        msg.debug("rm success:", path)
-        return true
-    else
-        msg.error("rm failure:", process.stderr)
-        return false
-    end
-end
-
-
-local function rm(path)
-    local path = "\"" .. path .. "\""
-    local args = nil
-
-    if detect_os() == "unix" then
-        args = {"rm", path}
-    else
+        local path = "\"" .. path .. "\""
         args = {"powershell", "-NoProfile", "-Command", "rm", path}
     end
 
@@ -386,6 +359,53 @@ local function hash()
         msg.warn("hash function failed")
         return
     end
+end
+
+
+local function seconds_to_hhmmss(sec)
+    local hours = math.floor(sec / 3600)
+    local minutes = math.floor(sec % 3600 / 60)
+    local seconds = sec % 60
+    local rest = (sec - math.floor(sec)) * 1000
+    
+    return string.format("%02d:%02d:%02d.%03d", hours, minutes, seconds, rest)
+end
+
+
+local function construct_xml()
+    local chapter_count = mp.get_property_number("chapter-list/count")
+    local all_chapters = mp.get_property_native("chapter-list")
+
+    local xml = [[<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE Chapters SYSTEM "matroskachapters.dtd">]] .. "\n<!-- " .. full_path() .. " -->\n<Chapters>\n\t<EditionEntry>"
+
+    for i, c in ipairs(all_chapters) do
+        local c_title = c.title
+        local c_start = c.time
+        local c_end
+
+        if i < chapter_count then
+            c_end = all_chapters[i+1].time
+        else
+            c_end = (mp.get_property_number("duration") or c.time)
+        end
+
+        msg.debug(i, "c_title", c_title, "c_start:", c_start, "c_end", c_end)
+
+        xml = xml .. "\n" ..
+        "\t\t<ChapterAtom>\n" ..
+        "\t\t\t<ChapterTimeStart>" .. seconds_to_hhmmss(c_start) .. "</ChapterTimeStart>\n" ..
+        "\t\t\t<ChapterTimeEnd>" .. seconds_to_hhmmss(c_end) .. "</ChapterTimeEnd>\n" ..
+        "\t\t\t<ChapterDisplay>\n" ..
+        "\t\t\t\t<ChapterString>" .. c_title .. "</ChapterString>\n" ..
+        "\t\t\t</ChapterDisplay>\n" ..
+        "\t\t</ChapterAtom>"
+    end
+
+    xml = xml .. "\n\t</EditionEntry>\n</Chapters>\n"
+
+    return xml
+
 end
 
 
@@ -501,6 +521,43 @@ local function write_chapters(...)
     end
 
     local success, error = chapters_file:write(construct_ffmetadata(chapter_zero))
+    chapters_file:close()
+
+    if success then
+        if osd then
+            mp.osd_message("Chapters written to:" .. chapters_file_path, 3)
+        end
+        return chapters_file_path
+    else
+        msg.error("error writing chapters file:", error)
+        return
+    end
+end
+
+
+local function write_xml(...)
+    local osd = ...
+    if mp.get_property_number("chapter-list/count") == 0 then
+        msg.debug("nothing to write")
+        return
+    end
+
+    -- figure out the directory
+    local chapters_dir = utils.split_path(mp.get_property("path"))
+
+    -- and the name
+    local name = mp.get_property("filename")
+
+    local chapters_file_path = utils.join_path(chapters_dir, name .. ".chapters.xml")
+
+    msg.debug("opening for writing:", chapters_file_path)
+    local chapters_file = io.open(chapters_file_path, "w")
+    if chapters_file == nil then
+        msg.error("could not open chapter file for writing")
+        return
+    end
+
+    local success, error = chapters_file:write(construct_xml())
     chapters_file:close()
 
     if success then
@@ -647,4 +704,5 @@ mp.add_key_binding(nil, "add_chapter", add_chapter)
 mp.add_key_binding(nil, "remove_chapter", remove_chapter)
 mp.add_key_binding(nil, "edit_chapter", edit_chapter)
 mp.add_key_binding(nil, "write_chapters", function () write_chapters(true) end)
+mp.add_key_binding(nil, "write_xml", function () write_xml(true) end)
 mp.add_key_binding(nil, "bake_chapters", bake_chapters)
