@@ -413,12 +413,16 @@ local function construct_xml()
 end
 
 
-local function construct_txt()
+local function construct_txt(timestamp)
     local all_chapters = mp.get_property_native("chapter-list")
     local txt = ""
 
     for i, c in ipairs(all_chapters) do
-        txt = txt .. seconds_to_hhmmss(c.time) .. " " .. c.title .. "\n"
+        if timestamp then
+            txt = txt .. seconds_to_hhmmss(c.time) .. " " .. c.title .. "\n"
+        else
+            txt = txt .. c.title .. "\n"
+        end
     end
 
     return txt
@@ -577,6 +581,8 @@ local function write(...)
     if format == "xml" then
         success, error = chapters_file:write(construct_xml())
     elseif format == "txt" then
+        success, error = chapters_file:write(construct_txt(true))
+    elseif format == "list.txt" then
         success, error = chapters_file:write(construct_txt())
     end
 
@@ -728,4 +734,5 @@ mp.add_key_binding(nil, "edit_chapter", edit_chapter)
 mp.add_key_binding(nil, "write_chapters", function () write_chapters(true) end)
 mp.add_key_binding(nil, "write_xml", function () write("xml", true) end)
 mp.add_key_binding(nil, "write_txt", function () write("txt", true) end)
+mp.add_key_binding(nil, "write_list", function () write("list.txt", true) end)
 mp.add_key_binding(nil, "bake_chapters", bake_chapters)
