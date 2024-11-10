@@ -362,13 +362,18 @@ local function hash()
 end
 
 
-local function seconds_to_hhmmss(sec)
+local function seconds_to_hhmmss(sec, precision)
     local hours = math.floor(sec / 3600)
     local minutes = math.floor(sec % 3600 / 60)
     local seconds = sec % 60
-    local rest = (sec - math.floor(sec)) * 1000
-    
-    return string.format("%02d:%02d:%02d.%03d", hours, minutes, seconds, rest)
+
+    local time = string.format("%02d:%02d:%02d", hours, minutes, seconds)
+
+    if precision then
+        time = time .. string.format(".%0" .. precision .. "d", (sec - math.floor(sec)) * 10 ^ precision)
+    end
+
+    return time
 end
 
 
@@ -394,8 +399,8 @@ local function construct_xml()
 
         xml = xml .. "\n" ..
         "\t\t<ChapterAtom>\n" ..
-        "\t\t\t<ChapterTimeStart>" .. seconds_to_hhmmss(c_start) .. "</ChapterTimeStart>\n" ..
-        "\t\t\t<ChapterTimeEnd>" .. seconds_to_hhmmss(c_end) .. "</ChapterTimeEnd>\n" ..
+        "\t\t\t<ChapterTimeStart>" .. seconds_to_hhmmss(c_start, 3) .. "</ChapterTimeStart>\n" ..
+        "\t\t\t<ChapterTimeEnd>" .. seconds_to_hhmmss(c_end, 3) .. "</ChapterTimeEnd>\n" ..
         "\t\t\t<ChapterDisplay>\n" ..
         "\t\t\t\t<ChapterString>" .. c_title .. "</ChapterString>\n" ..
         "\t\t\t</ChapterDisplay>\n" ..
@@ -405,7 +410,18 @@ local function construct_xml()
     xml = xml .. "\n\t</EditionEntry>\n</Chapters>\n"
 
     return xml
+end
 
+
+local function construct_txt()
+    local all_chapters = mp.get_property_native("chapter-list")
+    local txt = ""
+
+    for i, c in ipairs(all_chapters) do
+        txt = txt .. seconds_to_hhmmss(c.time) .. " " .. c.title .. "\n"
+    end
+
+    return txt
 end
 
 
@@ -535,8 +551,8 @@ local function write_chapters(...)
 end
 
 
-local function write_xml(...)
-    local osd = ...
+local function write(...)
+    local format, osd = ...
     if mp.get_property_number("chapter-list/count") == 0 then
         msg.debug("nothing to write")
         return
@@ -548,7 +564,7 @@ local function write_xml(...)
     -- and the name
     local name = mp.get_property("filename")
 
-    local chapters_file_path = utils.join_path(chapters_dir, name .. ".chapters.xml")
+    local chapters_file_path = utils.join_path(chapters_dir, name .. ".chapters." .. format)
 
     msg.debug("opening for writing:", chapters_file_path)
     local chapters_file = io.open(chapters_file_path, "w")
@@ -557,7 +573,13 @@ local function write_xml(...)
         return
     end
 
-    local success, error = chapters_file:write(construct_xml())
+    local success, error
+    if format == "xml" then
+        success, error = chapters_file:write(construct_xml())
+    elseif format == "txt" then
+        success, error = chapters_file:write(construct_txt())
+    end
+
     chapters_file:close()
 
     if success then
@@ -704,5 +726,6 @@ mp.add_key_binding(nil, "add_chapter", add_chapter)
 mp.add_key_binding(nil, "remove_chapter", remove_chapter)
 mp.add_key_binding(nil, "edit_chapter", edit_chapter)
 mp.add_key_binding(nil, "write_chapters", function () write_chapters(true) end)
-mp.add_key_binding(nil, "write_xml", function () write_xml(true) end)
+mp.add_key_binding(nil, "write_xml", function () write("xml", true) end)
+mp.add_key_binding(nil, "write_txt", function () write("txt", true) end)
 mp.add_key_binding(nil, "bake_chapters", bake_chapters)
