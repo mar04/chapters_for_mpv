@@ -21,6 +21,7 @@ This version of the script requires mpv 0.38 or newer.
 * option to automatically save/load chapter files
 * option to use ffmpeg to put the chapters into the media file container as a
   metadata, so that other media players, like vlc, can make use of them
+* embed chapters in place in mkv container using mkvpropedit
 * should work on Unix and Windows (tested on Archlinux and Windows 10)
 
 ## Installation
@@ -37,6 +38,7 @@ This version of the script requires mpv 0.38 or newer.
   ctrl+b  script-binding chapters/write_xml
   B       script-binding chapters/write_txt
   ctrl+,  script-binding chapters/bake_chapters
+  K       script-binding chapters/mkvpropedit
   ```
 
 ## Thanks

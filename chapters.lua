@@ -681,6 +681,58 @@ local function bake_chapters()
 end
 
 
+-- edit mkv file in place
+local function mkvpropedit()
+    local ext
+    local filename = mp.get_property("filename")
+    local file_path = mp.get_property("path")
+
+    if mp.get_property_number("chapter-list/count") == 0 then
+        msg.verbose("no chapters present")
+        return
+    end
+
+    -- check the extension
+    local reverse_dot_index = filename:reverse():find(".", 1, true)
+    if reverse_dot_index == nil then
+        msg.warning("file has no extension, are you sure it's mkv?")
+    else
+        local dot_index = #filename + 1 - reverse_dot_index
+        ext = filename:sub(dot_index + 1)
+        if ext ~= "mkv" then
+            msg.warning("file does not have mkv extension, are you sure it's mkv?")
+        end
+    end
+    local chapters_file_path = write("ffmetadata.tmp")
+    if not chapters_file_path then
+        msg.error("no chapters file")
+        return
+    end
+
+    local args = {"mkvpropedit", file_path, "--chapters", chapters_file_path}
+
+    msg.debug("args:", utils.to_string(args))
+
+    local process = mp.command_native({
+        name = 'subprocess',
+        playback_only = false,
+        capture_stdout = true,
+        capture_stderr = true,
+        args = args
+    })
+
+    if process.status == 0 then
+        mp.osd_message("chapters embedded", 3)
+    else
+        msg.error("failed to embed chapters", process.stderr)
+    end
+
+    -- remove temporary chapters file
+    rm(chapters_file_path)
+end
+
+
+
 -- HOOKS -----------------------------------------------------------------------
 
 
@@ -707,3 +759,4 @@ mp.add_key_binding(nil, "write_txt", function () write("txt", true) end)
 mp.add_key_binding(nil, "write_list", function () write("list.txt", true) end)
 mp.add_key_binding(nil, "write_ffmetadata", function () write("ffmetadata", true) end)
 mp.add_key_binding(nil, "bake_chapters", bake_chapters)
+mp.add_key_binding(nil, "mkvpropedit", mkvpropedit)
