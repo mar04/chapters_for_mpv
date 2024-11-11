@@ -32,7 +32,6 @@ local input = require 'mp.input'
 
 -- can't pass the chapter number to the callback, so let's pass it through a global var
 local edited_chapter = 0
-local chapters_modified = false
 
 
 local options = {
@@ -76,7 +75,6 @@ local function change_title_callback(user_input)
     chapter_list[chapter_index].title = user_input
 
     mp.set_property_native("chapter-list", chapter_list)
-    chapters_modified = true
 end
 
 
@@ -122,7 +120,6 @@ local function add_chapter()
     msg.debug("inserting new chapter at ", chapter_index, " chapter_", " time: ", time_pos)
 
     mp.set_property_native("chapter-list", chapter_list)
-    chapters_modified = true
 
     if options.ask_for_title then
         input.get({
@@ -157,7 +154,6 @@ local function remove_chapter()
     msg.debug("removing chapter", current_chapter)
 
     mp.set_property_native("chapter-list", chapter_list)
-    chapters_modified = true
 end
 
 
@@ -180,7 +176,6 @@ end
 -- returns a table of command path and varargs, or nil if command was not found
 local function command_exists(command, ...)
     msg.debug("looking for command:", command)
-    -- msg.debug("args:", )
     local process = mp.command_native({
         name = "subprocess",
         capture_stdout = true,
@@ -294,7 +289,7 @@ local function rm(path)
     if detect_os() == "unix" then
         args = {"rm", path}
     else
-        local path = "\"" .. path .. "\""
+        path = "\"" .. path .. "\""
         args = {"powershell", "-NoProfile", "-Command", "rm", path}
     end
 
@@ -483,20 +478,22 @@ end
 
 
 -- args:
+--      format - string for file extension and content
 --      osd - if true, display an osd message
---      bake - if true write chapters file even if there are no changes
---      chapter_zero - if true generate a chapter at 0:00
+--      store - if true store chapters according to the config file
+--      chapter_zero - if true generate a chapter at 0:00 if one doesn't exists
 -- on success returns path of the chapters file, nil on failure
-local function write_chapters(...)
-    local osd, bake, chapter_zero = ...
-    if not bake and (mp.get_property_number("chapter-list/count") == 0 or not chapters_modified) then
+local function write(...)
+    local format, osd, store, chapter_zero = ...
+    -- if not bake and (mp.get_property_number("chapter-list/count") == 0 or not chapters_modified) then
+    if mp.get_property_number("chapter-list/count") == 0 then
         msg.debug("nothing to write")
         return
     end
 
     -- figure out the directory
     local chapters_dir
-    if options.global_chapters and not bake then
+    if store and options.global_chapters then
         local dir = utils.file_info(options.chapters_dir)
         if dir then
             if dir.is_dir then
@@ -520,7 +517,7 @@ local function write_chapters(...)
 
     -- and the name
     local name = mp.get_property("filename")
-    if options.hash and options.global_chapters and not bake then
+    if store and options.global_chapters and options.hash then
         name = hash()
         if name == nil then
             msg.warn("hash function failed, fallback to filename")
@@ -528,48 +525,15 @@ local function write_chapters(...)
         end
     end
 
-    local chapters_file_path = utils.join_path(chapters_dir, name .. ".ffmetadata")
-    if bake then
-        chapters_file_path = chapters_file_path .. ".tmp"
+    local chapters_file_path
+    if store then -- this is what load chapter expects
+        chapters_file_path = utils.join_path(chapters_dir, name .. ".ffmetadata")
+    else -- this is export name
+        chapters_file_path = utils.join_path(chapters_dir, name .. ".chapters." .. format)
     end
-    msg.debug("opening for writing:", chapters_file_path)
-    local chapters_file = io.open(chapters_file_path, "w")
-    if chapters_file == nil then
-        msg.error("could not open chapter file for writing")
-        return
-    end
-
-    local success, error = chapters_file:write(construct_ffmetadata(chapter_zero))
-    chapters_file:close()
-
-    if success then
-        if osd then
-            mp.osd_message("Chapters written to:" .. chapters_file_path, 3)
-        end
-        return chapters_file_path
-    else
-        msg.error("error writing chapters file:", error)
-        return
-    end
-end
-
-
-local function write(...)
-    local format, osd = ...
-    if mp.get_property_number("chapter-list/count") == 0 then
-        msg.debug("nothing to write")
-        return
-    end
-
-    -- figure out the directory
-    local chapters_dir = utils.split_path(mp.get_property("path"))
-
-    -- and the name
-    local name = mp.get_property("filename")
-
-    local chapters_file_path = utils.join_path(chapters_dir, name .. ".chapters." .. format)
 
     msg.debug("opening for writing:", chapters_file_path)
+
     local chapters_file = io.open(chapters_file_path, "w")
     if chapters_file == nil then
         msg.error("could not open chapter file for writing")
@@ -583,6 +547,10 @@ local function write(...)
         success, error = chapters_file:write(construct_txt(true))
     elseif format == "list.txt" then
         success, error = chapters_file:write(construct_txt())
+    elseif format == "ffmetadata" then
+        success, error = chapters_file:write(construct_ffmetadata())
+    elseif format == "ffmetadata.tmp" then
+        success, error = chapters_file:write(construct_ffmetadata(chapter_zero))
     end
 
     chapters_file:close()
@@ -681,7 +649,7 @@ local function bake_chapters()
     --see: https://forum.videohelp.com/threads/403564-MP4-File-with-no-Chapter-at-00-00-00-000-Breaks-FFMPEG-Conversion
     local require_chapter_zero = ext == "mp4"
 
-    local chapters_file_path = write_chapters(false, true, require_chapter_zero)
+    local chapters_file_path = write("ffmetadata.tmp", false, false, require_chapter_zero)
     if not chapters_file_path then
         msg.error("no chapters file")
         return
@@ -721,7 +689,7 @@ if options.autoload then
 end
 
 if options.autosave then
-    mp.add_hook("on_unload", 50, function () write_chapters(false) end)
+    mp.add_hook("on_unload", 50, function () write("ffmetadata", false, true) end)
 end
 
 mp.add_hook("on_unload", 50, function () input.terminate() end)
@@ -733,8 +701,9 @@ mp.add_hook("on_unload", 50, function () input.terminate() end)
 mp.add_key_binding(nil, "add_chapter", add_chapter)
 mp.add_key_binding(nil, "remove_chapter", remove_chapter)
 mp.add_key_binding(nil, "edit_chapter", edit_chapter)
-mp.add_key_binding(nil, "write_chapters", function () write_chapters(true) end)
+mp.add_key_binding(nil, "write_chapters", function () write("ffmetadata",true, true) end)
 mp.add_key_binding(nil, "write_xml", function () write("xml", true) end)
 mp.add_key_binding(nil, "write_txt", function () write("txt", true) end)
 mp.add_key_binding(nil, "write_list", function () write("list.txt", true) end)
+mp.add_key_binding(nil, "write_ffmetadata", function () write("ffmetadata", true) end)
 mp.add_key_binding(nil, "bake_chapters", bake_chapters)
