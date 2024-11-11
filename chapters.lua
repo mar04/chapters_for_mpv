@@ -454,9 +454,8 @@ local function construct_ffmetadata(chapter_zero)
 
     local ffmetadata = ";FFMETADATA1\n;file=" .. full_path()
 
-    --ffmpeg wants a chapter starting at 0:00 when using mp4 container
-    --see: https://forum.videohelp.com/threads/403564-MP4-File-with-no-Chapter-at-00-00-00-000-Breaks-FFMPEG-Conversion
-    if chapter_zero then
+    -- add a dummy chapter at 0:00 only if necessary
+    if chapter_zero and all_chapters[1].time ~= 0 then
         ffmetadata = ffmetadata .. "\n[CHAPTER]\nTIMEBASE=1/1000\nSTART=0\nEND=" .. all_chapters[1].time * 1000 .. "\ntitle=0"
     end
 
@@ -677,6 +676,9 @@ local function bake_chapters()
         output_name = filename:sub(1, dot_index) .. "chapters." .. ext
     end
 
+
+    --ffmpeg wants a chapter starting at 0:00 when using mp4 container
+    --see: https://forum.videohelp.com/threads/403564-MP4-File-with-no-Chapter-at-00-00-00-000-Breaks-FFMPEG-Conversion
     local require_chapter_zero = ext == "mp4"
 
     local chapters_file_path = write_chapters(false, true, require_chapter_zero)
