@@ -160,6 +160,57 @@ end
 -- UTILITY FUNCTIONS -----------------------------------------------------------
 
 
+-- youtube requirements:
+-- 1. first chapter starts at 0:00
+-- 2. at least 3 chapters
+-- 3. minimum chapter length is 10s
+local function validate_for_youtube()
+    local chapter_count = mp.get_property_number("chapter-list/count")
+    local all_chapters = mp.get_property_native("chapter-list")
+    local pass = "OK"
+    local fail = "FAIL"
+
+    local val = "YouTube validation:\n1. Chapter at 00:00:\t"
+    if chapter_count > 0 and math.floor(all_chapters[1].time) == 0 then
+        val = val .. pass .. "\n"
+    else
+        val = val .. fail .. "\n"
+    end
+
+    if chapter_count >= 3 then
+        val = val .. "2. At least 3 chapters:\t" .. pass .. "\n"
+    else
+        val = val .. "2. At least 3 chapters:\t" .. fail .. "\n"
+    end
+
+    val = val .. "3. Minimum chapter length is 10s:\t"
+    if chapter_count > 0 then
+        local chapter_length = true
+        for i, c in ipairs(all_chapters) do
+            local c_start = c.time
+            local c_end
+            if i < chapter_count then
+                c_end = all_chapters[i+1].time
+            else
+                c_end = (mp.get_property_number("duration") or c.time)
+            end
+            local length = math.floor(c_end) - math.floor(c_start)
+            if length < 10 then
+                chapter_length = false
+                val = val .. "\n\t" .. fail .. " chapter: ".. i .. " is " .. length .. "sec"
+            end
+        end
+        if chapter_length then
+            val = val .. pass .. "\n"
+        end
+    else
+        val = val .. fail .. "\n"
+    end
+
+    mp.osd_message(val, 20)
+end
+
+
 local function detect_os()
     -- The first line is the directory separator string.
     -- Default is '\' for Windows and '/' for all other systems.
@@ -760,3 +811,4 @@ mp.add_key_binding(nil, "write_list", function () write("list.txt", true) end)
 mp.add_key_binding(nil, "write_ffmetadata", function () write("ffmetadata", true) end)
 mp.add_key_binding(nil, "bake_chapters", bake_chapters)
 mp.add_key_binding(nil, "mkvpropedit", mkvpropedit)
+mp.add_key_binding(nil, "validate_for_youtube", validate_for_youtube)
