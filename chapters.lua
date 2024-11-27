@@ -788,14 +788,14 @@ end
 
 
 if options.autoload then
-    mp.add_hook("on_load", 50, load_chapters)
+    mp.add_hook("on_load", 10, load_chapters)
 end
 
 if options.autosave then
-    mp.add_hook("on_unload", 50, function () write("ffmetadata", false, true) end)
+    mp.add_hook("on_unload", 10, function () write("ffmetadata", false, true) end)
 end
 
-mp.add_hook("on_unload", 50, function () input.terminate() end)
+mp.add_hook("on_unload", 10, function () input.terminate() end)
 
 
 -- BINDINGS --------------------------------------------------------------------
