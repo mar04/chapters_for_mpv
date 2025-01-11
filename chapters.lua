@@ -540,10 +540,7 @@ end
 -- on success returns path of the chapters file, nil on failure
 local function write(...)
     local format, osd, store, chapter_zero = ...
-    -- don't store chapters file with 0 chapters, unless the user modified the chapters,
-    -- this allows removing all chapters
-    -- TODO: maybe allow to automatically delete files with 0 chapters?
-    if store and mp.get_property_number("chapter-list/count") == 0 and not chapters_modified then
+    if store and not chapters_modified then
         msg.debug("nothing to write")
         return
     end
