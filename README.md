@@ -43,8 +43,6 @@ This version of the script requires mpv 0.38 or newer.
 
 ## Thanks
 
-* <https://github.com/CogentRedTester/mpv-user-input> - very useful script to get
-  user input, hopefully one day mpv's scripting API will have that ootb.
 * <https://github.com/shinchiro/mpv-createchapter> - inspiration for writing this
   script. At first I just wanted to add to it the ability to load the saved
   chapters file, but then I wrote entirely new script with a lot more features.
@@ -52,25 +50,3 @@ This version of the script requires mpv 0.38 or newer.
   my script and thinking how to name it, I found out that someone already wrote
   something similar. Duh... at least I got to lear some Lua in the process.
 * mpv, ffmpeg and other awesome open source projects
-
-## License
-
-Copyright (c) 2023 Mariusz Libera <mariusz.libera@gmail.com>
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
