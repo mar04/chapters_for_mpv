@@ -715,7 +715,7 @@ local function bake_chapters()
     local file_path = mp.get_property("path")
     local output_path = utils.join_path(utils.split_path(file_path), output_name)
 
-    local args = {"ffmpeg", "-y", "-i", file_path, "-i", chapters_file_path, "-map", "0", "-map_metadata", "1", "-codec", "copy", output_path}
+    local args = {"ffmpeg", "-y", "-i", file_path, "-i", chapters_file_path, "-map", "0", "-map_chapters", "1", "-codec", "copy", output_path}
 
     msg.debug("args:", utils.to_string(args))
 
