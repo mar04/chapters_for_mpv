@@ -32,6 +32,7 @@ local input = require 'mp.input'
 
 -- can't pass the chapter number to the callback, so let's pass it through a global var
 local edited_chapter = 0
+local chapters_modified = false
 
 
 local options = {
@@ -75,6 +76,7 @@ local function change_title_callback(user_input)
     chapter_list[chapter_index].title = user_input
 
     mp.set_property_native("chapter-list", chapter_list)
+    chapters_modified = true
 end
 
 
@@ -120,6 +122,7 @@ local function add_chapter()
     msg.debug("inserting new chapter at ", chapter_index, " chapter_", " time: ", time_pos)
 
     mp.set_property_native("chapter-list", chapter_list)
+    chapters_modified = true
 
     if options.ask_for_title then
         input.get({
@@ -154,6 +157,7 @@ local function remove_chapter()
     msg.debug("removing chapter", current_chapter)
 
     mp.set_property_native("chapter-list", chapter_list)
+    chapters_modified = true
 end
 
 
@@ -536,8 +540,10 @@ end
 -- on success returns path of the chapters file, nil on failure
 local function write(...)
     local format, osd, store, chapter_zero = ...
-    -- if not bake and (mp.get_property_number("chapter-list/count") == 0 or not chapters_modified) then
-    if mp.get_property_number("chapter-list/count") == 0 then
+    -- don't store chapters file with 0 chapters, unless the user modified the chapters,
+    -- this allows removing all chapters
+    -- TODO: maybe allow to automatically delete files with 0 chapters?
+    if store and mp.get_property_number("chapter-list/count") == 0 and not chapters_modified then
         msg.debug("nothing to write")
         return
     end
