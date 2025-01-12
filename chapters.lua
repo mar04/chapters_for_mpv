@@ -44,6 +44,7 @@ local options = {
     pause_on_input = false,
     autoload = true,
     autosave = false,
+    autoexportFormats = '',
     -- save all chapter files in a single global directory or next to the playback file
     global_chapters = false,
     chapters_dir = mp.command_native({"expand-path", "~~home/chapters"}),
@@ -796,6 +797,26 @@ end
 
 if options.autosave then
     mp.add_hook("on_unload", 10, function () write("ffmetadata", false, true) end)
+end
+
+if not (options.autoexportFormats == '') then
+    local formats = {}
+    for format in string.gmatch(options.autoexportFormats, '[^,]+') do
+        if (format == 'list.txt'
+            or format == 'txt'
+            or format == 'xml') then
+                table.insert(formats,format)
+        end
+    end
+
+    if #formats == 0 then
+        msg.warn('autoexportFormats was set, but no valid formats were found')
+        return
+    end
+
+    for _,format in pairs(formats) do
+        mp.add_hook("on_unload", 10, function () write(format, false, false) end)
+    end
 end
 
 mp.add_hook("on_unload", 10, function () input.terminate() end)
