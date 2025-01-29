@@ -537,11 +537,12 @@ end
 --      format - string for file extension and content
 --      osd - if true, display an osd message
 --      store - if true store chapters according to the config file
+--      manual_save - if true force a save even without chapter modifications
 --      chapter_zero - if true generate a chapter at 0:00 if one doesn't exists
 -- on success returns path of the chapters file, nil on failure
 local function write(...)
-    local format, osd, store, chapter_zero = ...
-    if store and not chapters_modified then
+    local format, osd, store, manual_save, chapter_zero = ...
+    if not chapters_modified and not manual_save then
         msg.debug("nothing to write")
         return
     end
@@ -704,7 +705,7 @@ local function bake_chapters()
     --see: https://forum.videohelp.com/threads/403564-MP4-File-with-no-Chapter-at-00-00-00-000-Breaks-FFMPEG-Conversion
     local require_chapter_zero = ext == "mp4"
 
-    local chapters_file_path = write("ffmetadata.tmp", false, false, require_chapter_zero)
+    local chapters_file_path = write("ffmetadata.tmp", false, false, true, require_chapter_zero)
     if not chapters_file_path then
         msg.error("no chapters file")
         return
@@ -758,7 +759,7 @@ local function mkvpropedit()
             msg.warning("file does not have mkv extension, are you sure it's mkv?")
         end
     end
-    local chapters_file_path = write("ffmetadata.tmp")
+    local chapters_file_path = write("ffmetadata.tmp", false, false, true, false)
     if not chapters_file_path then
         msg.error("no chapters file")
         return
@@ -828,11 +829,11 @@ mp.add_hook("on_unload", 10, function () input.terminate() end)
 mp.add_key_binding(nil, "add_chapter", add_chapter)
 mp.add_key_binding(nil, "remove_chapter", remove_chapter)
 mp.add_key_binding(nil, "edit_chapter", edit_chapter)
-mp.add_key_binding(nil, "write_chapters", function () write("ffmetadata",true, true) end)
-mp.add_key_binding(nil, "write_xml", function () write("xml", true) end)
-mp.add_key_binding(nil, "write_txt", function () write("txt", true) end)
-mp.add_key_binding(nil, "write_list", function () write("list.txt", true) end)
-mp.add_key_binding(nil, "write_ffmetadata", function () write("ffmetadata", true) end)
+mp.add_key_binding(nil, "write_chapters", function () write("ffmetadata",true, true, true) end)
+mp.add_key_binding(nil, "write_xml", function () write("xml", true, false, true) end)
+mp.add_key_binding(nil, "write_txt", function () write("txt", true, false, true) end)
+mp.add_key_binding(nil, "write_list", function () write("list.txt", true, false, true) end)
+mp.add_key_binding(nil, "write_ffmetadata", function () write("ffmetadata", true, false, true) end)
 mp.add_key_binding(nil, "bake_chapters", bake_chapters)
 mp.add_key_binding(nil, "mkvpropedit", mkvpropedit)
 mp.add_key_binding(nil, "validate_for_youtube", validate_for_youtube)
